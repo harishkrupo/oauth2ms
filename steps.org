@@ -1,0 +1,73 @@
+#+TITLE: Setup instructions for O356 token for IMAP
+
+* Table of Contents                                       :TOC_5_gh:noexport:
+- [[#azure-app-setup][Azure app setup]]
+- [[#configjson-configuration][config.json configuration]]
+- [[#mbsync-configuration][mbsync configuration]]
+- [[#emacs-smtp-configuration][Emacs SMTP configuration]]
+
+* Azure app setup
+  You can follow the instructions here: [[https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app][azure register app]] or follow the TLDR below
+  1. Login to https://portal.azure.com/#home
+  2. Click on Azure active directory
+  3. Click on App registration > New Registration
+  4. Enter the app's name
+  5. Enter redirect URI as http://localhost:5000/getToken. The port number and redirect path ("/getToken") can be configured
+  6. Click on the newly created App, select "Certificates and secrets" and create a "New client secret". Make sure the copy the key now!
+  7. Click on API permissions > Add a permission.
+     - Click Microsoft graph > Delegated permission
+     - Add the "IMAP.AccessAsUser.All" permission
+     - Add the "User.ReadBasic.All" permission
+     - Add the "SMTP.Send" permission
+  That is it. Now follow setting up ~config.json~ below
+
+* config.json configuration
+  #+begin_src json
+    {
+	"tenant_id": "TENANT_ID",
+	"client_id": "CLIENT_ID",
+	"client_secret": "CLIENT_SECRET",
+	"redirect_host": "localhost",
+	"redirect_port": "5000",
+	"redirect_path": "/getToken/",
+	"scopes": ["https://outlook.office.com/IMAP.AccessAsUser.All", "https://outlook.office.com/SMTP.Send"]
+    }
+  #+end_src
+  The TENANT_ID and CLIENT_ID are available on the overview page of the app. CLIENT_SECRET is the one created in step 6.
+  If you entered a different port and redirect path in step 5, modify accordingly.
+* mbsync configuration
+  First install the [[https://github.com/moriyoshi/cyrus-sasl-xoauth2][xoauth2 sasl plugin]]. Then change the following lines in you mbsync configuration:
+  #+begin_src
+  ...
+  PassCmd oauth2ms
+  AuthMechs XOAUTH2
+  ...
+  #+end_src
+* Emacs SMTP configuration
+  The following code defines a new method to the authentication mechanisms of smtpmail emacs.
+  #+begin_src emacs-lisp
+    ;;; Call the oauth2ms program to fetch the authentication token
+    (defun fetch-access-token ()
+      (with-temp-buffer
+	(call-process "oauth2ms" nil t nil "--encode-xoauth2")
+	(buffer-string)))
+
+    ;;; Add new authentication method for xoauth2
+    (cl-defmethod smtpmail-try-auth-method
+      (process (_mech (eql xoauth2)) user password)
+      (let* ((access-token (fetch-access-token)))
+	(smtpmail-command-or-throw
+	 process
+	 (concat "AUTH XOAUTH2 " access-token)
+	 235)))
+
+    ;;; Register the method
+    (with-eval-after-load 'smtpmail
+      (add-to-list 'smtpmail-auth-supported 'xoauth2))
+
+    (setq message-send-mail-function   'smtpmail-send-it
+	  smtpmail-default-smtp-server "smtp.example.com"
+	  smtpmail-smtp-server         "smtp.example.com"
+	  smtpmail-stream-type  'starttls
+	  smtpmail-smtp-service 587)
+  #+end_src
