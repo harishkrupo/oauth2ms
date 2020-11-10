@@ -1,2 +1,3 @@
 pyxdg
 msal
+python-gnupg>=0.4.6

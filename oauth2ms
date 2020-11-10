@@ -31,6 +31,8 @@ import pprint
 import os
 import atexit
 import base64
+import gnupg
+import io
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -93,7 +95,7 @@ def validate_config(config):
 
     return all(conditions)
 
-def build_new_app_state():
+def build_new_app_state(crypt):
     cache = msal.SerializableTokenCache()
     config = load_config()
     if config is None:
@@ -142,6 +144,7 @@ def build_new_app_state():
     app = {}
     app['config'] = config
     app['cache'] = cache
+    app['crypt'] = crypt
     return app, token
 
 def fetch_token_from_cache(app):
@@ -155,24 +158,39 @@ def fetch_token_from_cache(app):
     else:
         None
 
-def build_app_state_from_credentials():
+def build_app_state_from_credentials(crypt):
+    # If the file is missing return None
+    if not os.path.exists(credentials_file):
+        return None
+
+    credentials = open(credentials_file, "r").read()
+    if crypt:
+        gpg = crypt["gpg"]
+        credentials = str(gpg.decrypt(credentials))
+
+    # Make sure it is a valid json object
+    try:
+        config = json.loads(credentials)
+    except:
+        print("Not a valild json file or it is ecrypted. Maybe add/remove the -e arugment?")
+        sys.exit(1)
+
+    # We don't have a token cache?
+    if config.get("token_cache") is None:
+        return None
+
     app_state = {};
     cache = msal.SerializableTokenCache()
-    if os.path.exists(credentials_file):
-        config = json.load(open(credentials_file, "r"))
-        if config.get("token_cache") is not None:
-            cache.deserialize(config["token_cache"])
-            app_state['config'] = config
-            app_state['cache'] = cache
-            return app_state
-    else:
-        return None
+    cache.deserialize(config["token_cache"])
+    app_state["config"] = config
+    app_state["cache"] = cache
+    app_state["crypt"] = crypt
+    return app_state
 
 """
 Encode the xoauth 2 message based on:
 https://docs.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth#sasl-xoauth2
 """
-
 def encode_xoauth2(app, token):
     config = app['config']
     cache = app['cache']
@@ -185,18 +203,27 @@ def encode_xoauth2(app, token):
     xoauth2_bytes = user + C_A + btoken + C_A + C_A
     return base64.b64encode(xoauth2_bytes).decode("utf-8")
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--encode-xoauth2", action="store_true", default=False,
                     help="Print xoauth2 encoded token instead of the plain token")
+parser.add_argument("-e", "--encrypt-using-fingerprint", action="store", default=None,
+                    help="Use gpg encryption to encrypt/decrypt the token cache. Argument is the fingerprint/email to be used")
+parser.add_argument("--gpg-home", action="store", default=None,
+                    help="Set the gpg home directory")
 
 results = parser.parse_args()
 
-app_state = {};
+crypt = None
+if results.encrypt_using_fingerprint:
+    gpg_args = {"gnupghome": results.gpg_home} if results.gpg_home else {}
+    gpg = gnupg.GPG(**gpg_args)
+    crypt = {"gpg" : gpg,
+             "fingerprint": results.encrypt_using_fingerprint}
+
 token = None
-app_state = build_app_state_from_credentials()
+app_state = build_app_state_from_credentials(crypt)
 if app_state is None:
-    app_state, token = build_new_app_state()
+    app_state, token = build_new_app_state(crypt)
 
 if app_state is None:
     print("Something went wrong!")
@@ -215,4 +242,10 @@ cache = app_state['cache']
 if cache.has_state_changed:
     config = app_state["config"]
     config["token_cache"] = cache.serialize()
-    json.dump(config, open(credentials_file, "w"))
+    config_json = json.dumps(config)
+    crypt = app_state.get("crypt")
+    if crypt:
+        gpg = crypt["gpg"]
+        fingerprint = crypt["fingerprint"]
+        config_json = str(gpg.encrypt(config_json, fingerprint))
+    open(credentials_file, "w").write(config_json)
