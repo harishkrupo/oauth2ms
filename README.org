@@ -4,6 +4,7 @@
 - [[#overview][Overview]]
 - [[#installation][Installation]]
 - [[#usage][Usage]]
+  - [[#encryption][Encryption]]
 - [[#todos][TODOS]]
 
 * Overview
@@ -43,6 +44,14 @@
   to the list of scopes to use the token for stmp. See [[steps.org]] for information on configuring emacs for sending mail
   via smtp with xoauth2.
 
+** Encryption
+   Encryption of the fetched token cache can be enabled using the =-e= (=--encrypt-using-fingerprint=) option. The option takes the
+   email/fingerprint to identify the gpg key to use for encrypting and decrypting the token cache.
+  #+begin_src sh
+    oauth2ms -e <gpg recipient fingerprint>
+  #+end_src
+
 * TODOS
-  - [ ] Use gpg to encrypt the fetched data
+  - [x] Use gpg to encrypt the fetched data
+  - [ ] Add support for encrypted config.json
   - [ ] Support more than one account at a time
