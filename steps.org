@@ -5,6 +5,7 @@
 - [[#configjson-configuration][config.json configuration]]
 - [[#mbsync-configuration][mbsync configuration]]
 - [[#emacs-smtp-configuration][Emacs SMTP configuration]]
+- [[#imap-notify-support][Imap notify support]]
 
 * Azure app setup
   You can follow the instructions here: [[https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app][azure register app]] or follow the TLDR below
@@ -70,4 +71,30 @@
 	  smtpmail-smtp-server         "smtp.example.com"
 	  smtpmail-stream-type  'starttls
 	  smtpmail-smtp-service 587)
+  #+end_src
+* Imap notify support
+  The [[https://tools.ietf.org/html/rfc5465][Imap notify extension]] allows you to open an active connection to the imap
+  server to listen for events (like new mail) instead of
+  polling frequently. When an event is received, you can trigger certain actions
+  like updating your mail box using mbsync. The [[https://github.com/harishkrupo/node-imapnotify][imapnotify]] tool can be configured
+  to listen for events. Sample configuration:
+  #+begin_src javascript
+    var child_process = require('child_process');
+
+    function getStdout(cmd) {
+	var stdout = child_process.execSync(cmd);
+	return stdout.toString().trim();
+    }
+
+    exports.host = "outlook.office365.com";
+    exports.port = 993;
+    exports.tls = true;
+    exports.username = "EMAIL";
+    exports.xoauth2 = getStdout("oauth2ms --encode-xoauth2");
+    exports.onNewMail = "emacsclient -e '(mu4e-update-mail-and-index 1)'";
+    exports.boxes = [ "INBOX"];
+  #+end_src
+  Once configured, the tool can be started using:
+  #+begin_src bash
+    $ imapnotify -c <path_to_config.js>
   #+end_src
