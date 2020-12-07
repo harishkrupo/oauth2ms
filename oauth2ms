@@ -140,6 +140,12 @@ def build_new_app_state(crypt):
         scopes=config['scopes'],
         redirect_uri=config["redirect_uri"]);
 
+
+    if result.get("access_token") is None:
+        print("Something went wrong during authorization")
+        print("Server returned: {}".format(result))
+        return None
+
     token = result["access_token"]
     app = {}
     app['config'] = config
