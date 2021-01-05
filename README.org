@@ -3,6 +3,7 @@
 * Table of Contents                                       :TOC_5_gh:noexport:
 - [[#overview][Overview]]
 - [[#installation][Installation]]
+  - [[#xdg-config-home][XDG CONFIG HOME]]
 - [[#usage][Usage]]
   - [[#encryption][Encryption]]
 - [[#todos][TODOS]]
@@ -18,6 +19,9 @@
     pip install -r requirements.txt
   #+end_src
   Then copy the =oauth2ms= file to any location in your =$PATH=.
+** XDG CONFIG HOME
+   For the app to locate your config file, the =$XDG_CONFIG_HOME= environment variable must be set.
+   It is generally set to =$HOME/.config=.
 
 * Usage
   Create a config file with the below details at =$XDG_CONFIG_HOME/oauth2ms/config.json=

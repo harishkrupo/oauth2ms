@@ -47,6 +47,7 @@ def load_config():
     config_file = load_first_config(APP_NAME, "config.json")
     if config_file is None:
         print(f"Couldn't find configuration file. Config file must be at: $XDG_CONFIG_HOME/{APP_NAME}/config.json")
+        print("Current value of $XDG_CONFIG_HOME is {}".format(os.getenv("XDG_CONFIG_HOME")))
         return None
     return json.load(open(config_file, 'r'))
 
