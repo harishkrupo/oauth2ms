@@ -14,7 +14,7 @@
   3. Click on App registration > New Registration
   4. Enter the app's name
   5. Enter redirect URI as http://localhost:5000/getToken. The port number and redirect path ("/getToken") can be configured
-  6. Click on the newly created App, select "Certificates and secrets" and create a "New client secret". Make sure the copy the key now!
+  6. Click on the newly created App, select "Certificates and secrets" and create a "New client secret". Make sure the copy the secret from the =value= field now!
   7. Click on API permissions > Add a permission.
      - Click Microsoft graph > Delegated permission
      - Add the "IMAP.AccessAsUser.All" permission
