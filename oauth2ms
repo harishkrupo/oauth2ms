@@ -112,8 +112,8 @@ def build_new_app_state(crypt):
     state = str(uuid.uuid4())
 
     redirect_path = config["redirect_path"]
-    # Remove / at the end if present
-    if redirect_path[-1] == "/":
+    # Remove / at the end if present, and path is not just /
+    if redirect_path != "/" and redirect_path[-1] == "/":
         redirect_path = redirect_path[:-1]
 
     config["redirect_uri"] = "http://" + config['redirect_host'] + ":" + config['redirect_port'] + redirect_path
