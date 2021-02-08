@@ -43,6 +43,19 @@ _LOGGER = logging.getLogger(__name__)
 APP_NAME = "oauth2ms"
 SUCCESS_MESSAGE = "Authorization complete."
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--encode-xoauth2", action="store_true", default=False,
+                    help="Print xoauth2 encoded token instead of the plain token")
+parser.add_argument("-e", "--encrypt-using-fingerprint", action="store", default=None,
+                    help="Use gpg encryption to encrypt/decrypt the token cache. Argument is the fingerprint/email to be used")
+parser.add_argument("--gpg-home", action="store", default=None,
+                    help="Set the gpg home directory")
+parser.add_argument("--no-browser", action="store_true", default=False,
+                    help="Don't open a browser with URL. Instead print the URL. Useful inside virtualized environments like WSL.")
+
+cmdline_args = parser.parse_args()
+
+
 def load_config():
     config_file = load_first_config(APP_NAME, "config.json")
     if config_file is None:
@@ -123,7 +136,11 @@ def build_new_app_state(crypt):
                                             int(config['redirect_port']),
                                             wsgi_app,
                                             handler_class=WSGIRequestHandler)
-    webbrowser.open(auth_url, new=2, autoraise=True)
+    if cmdline_args.no_browser:
+        print("Please navigate to this url: " + auth_url)
+    else:
+        webbrowser.open(auth_url, new=2, autoraise=True)
+
     http_server.handle_request()
 
     auth_response = wsgi_app.last_request_uri
@@ -210,22 +227,12 @@ def encode_xoauth2(app, token):
     xoauth2_bytes = user + C_A + btoken + C_A + C_A
     return base64.b64encode(xoauth2_bytes).decode("utf-8")
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--encode-xoauth2", action="store_true", default=False,
-                    help="Print xoauth2 encoded token instead of the plain token")
-parser.add_argument("-e", "--encrypt-using-fingerprint", action="store", default=None,
-                    help="Use gpg encryption to encrypt/decrypt the token cache. Argument is the fingerprint/email to be used")
-parser.add_argument("--gpg-home", action="store", default=None,
-                    help="Set the gpg home directory")
-
-results = parser.parse_args()
-
 crypt = None
-if results.encrypt_using_fingerprint:
-    gpg_args = {"gnupghome": results.gpg_home} if results.gpg_home else {}
+if cmdline_args.encrypt_using_fingerprint:
+    gpg_args = {"gnupghome": cmdline_args.gpg_home} if cmdline_args.gpg_home else {}
     gpg = gnupg.GPG(**gpg_args)
     crypt = {"gpg" : gpg,
-             "fingerprint": results.encrypt_using_fingerprint}
+             "fingerprint": cmdline_args.encrypt_using_fingerprint}
 
 token = None
 app_state = build_app_state_from_credentials(crypt)
@@ -240,7 +247,7 @@ if token is None:
     token = fetch_token_from_cache(app_state)
 
 if token is not None:
-    if results.encode_xoauth2:
+    if cmdline_args.encode_xoauth2:
         print(encode_xoauth2(app_state, token))
     else:
         print(token);
