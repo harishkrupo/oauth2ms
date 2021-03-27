@@ -91,7 +91,10 @@ def load_config():
 def build_msal_app(config, cache=None):
     return msal.ConfidentialClientApplication(
         config['client_id'],
-        authority="https://login.microsoftonline.com/" + config['tenant_id'],
+        if cmdline_args.account is not None:
+            authority="https://login.microsoftonline.com/common"
+        else:
+            authority="https://login.microsoftonline.com/" + config['tenant_id'],
         client_credential=config['client_secret'], token_cache=cache)
 
 
