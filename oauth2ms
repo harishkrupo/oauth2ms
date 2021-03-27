@@ -36,7 +36,6 @@ import io
 
 pp = pprint.PrettyPrinter(indent=4)
 
-credentials_file = save_data_path("oauth2ms") + "/credentials.bin"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +43,12 @@ APP_NAME = "oauth2ms"
 SUCCESS_MESSAGE = "Authorization complete."
 
 parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-a",
+    "--account",
+    action="store_true",
+    default=False,
+    help="Outlook email address")
 parser.add_argument(
     "--encode-xoauth2",
     action="store_true",
@@ -64,6 +69,12 @@ parser.add_argument(
     help="Don't open a browser with URL. Instead print the URL. Useful inside virtualized environments like WSL.")
 
 cmdline_args = parser.parse_args()
+
+if cmdline_args.account is not None:
+    credentials_file = save_data_path(
+        "oauth2ms") + "/credentials" + cmdline_args.account + ".bin"
+else:
+    credentials_file = save_data_path("oauth2ms") + "/credentials.bin"
 
 
 def load_config():
