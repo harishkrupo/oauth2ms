@@ -39,10 +39,12 @@ Create a config file with the below details at =$XDG_CONFIG_HOME/oauth2ms/config
       "redirect_host": "localhost",
       "redirect_port": "5000",
       "redirect_path": "/getToken/",
-      "scopes": ["https://outlook.office.com/IMAP.AccessAsUser.All"]
+      "scopes": ["https://outlook.office.com/IMAP.AccessAsUser.All"],
+      "flow": "auth"
   }
 #+end_src
 If you aren't sure how to fetch the the TENANT_ID, CLIENT_ID and CLIENT_SECRET values, read more on [[file:steps.org][steps.org]].
+If you are using device flow, set "flow" to "device".
 After creating the config file, execute =oauth2ms=, it should pop up a browser window asking you to login.
 Once logged it, it should redirect you to a page which says "Authorization complete.". On the terminal you should
 see the token printed. Subsequent fetches should use the refresh token to get the access token. Call =oauth2ms= with
