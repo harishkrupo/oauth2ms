@@ -65,10 +65,17 @@ def load_config():
     return json.load(open(config_file, 'r'))
 
 def build_msal_app(config, cache = None):
-    return msal.ConfidentialClientApplication(
-        config['client_id'],
-        authority="https://login.microsoftonline.com/" + config['tenant_id'],
-        client_credential=config['client_secret'], token_cache=cache)
+    if config["flow"] == "auth":
+        return msal.ConfidentialClientApplication(
+            config['client_id'],
+            authority="https://login.microsoftonline.com/" + config['tenant_id'],
+            client_credential=config['client_secret'], token_cache=cache)
+
+    elif config["flow"] == "device":
+        return msal.PublicClientApplication(
+            config['client_id'],
+            authority="https://login.microsoftonline.com/" + config['tenant_id'],
+            token_cache=cache)
 
 def get_auth_url(config, cache, state):
     return build_msal_app(config, cache).get_authorization_request_url(
@@ -97,17 +104,38 @@ class WSGIRedirectionApp(object):
         return [self._success_message.encode("utf-8")]
 
 def validate_config(config):
-    conditions = [
+    conditionsBoth = [
         "tenant_id" in config,
         "client_id" in config,
+        "scopes" in config,
+	"flow" in config
+    ]
+
+    conditionsAuth = [
         "redirect_host" in config,
         "redirect_port" in config,
         "redirect_path" in config,
-        "scopes" in config,
         "client_secret" in config
     ]
 
-    return all(conditions)
+    if not all(conditionsBoth):
+        print("Invalid config")
+        print("Config must contain the keys: " +
+            "tenant_id, client_id, scopes, flow");
+        return False
+    elif config["flow"] == "auth":
+        if all(conditionsAuth): return True
+        else:
+            print("Invalid config")
+            print("If \"flow\" is \"auth\" then config must contain the keys: " +
+                "redirect_host, redirect_port, redirect_path, client_secret");
+            return False
+    elif config["flow"] == "device":
+        return True
+    else:
+        print("Invalid config")
+        print("\"flow\" must be \"auth\" or \"device\"")
+        return False
 
 def build_new_app_state(crypt):
     cache = msal.SerializableTokenCache()
@@ -115,49 +143,49 @@ def build_new_app_state(crypt):
     if config is None:
         return None
 
-    if not validate_config(config):
-        print("Invalid config")
-        print("Config must contain the keys: " +
-            "tenant_id, client_id, redirect_host, redirect_port, " +
-            "redirect_path, scopes, client_secret")
-        return None
+    if not validate_config(config): return None
 
-    state = str(uuid.uuid4())
+    if config["flow"] == "auth":
+        state = str(uuid.uuid4())
+        redirect_path = config["redirect_path"]
+        # Remove / at the end if present, and path is not just /
+        if redirect_path != "/" and redirect_path[-1] == "/":
+            redirect_path = redirect_path[:-1]
 
-    redirect_path = config["redirect_path"]
-    # Remove / at the end if present, and path is not just /
-    if redirect_path != "/" and redirect_path[-1] == "/":
-        redirect_path = redirect_path[:-1]
+        config["redirect_uri"] = "http://" + config['redirect_host'] + ":" + config['redirect_port'] + redirect_path
+        auth_url = get_auth_url(config, cache, state)
+        wsgi_app = WSGIRedirectionApp(SUCCESS_MESSAGE)
+        http_server = simple_server.make_server(config['redirect_host'],
+                                                int(config['redirect_port']),
+                                                wsgi_app,
+                                                handler_class=WSGIRequestHandler)
+        if cmdline_args.no_browser:
+            print("Please navigate to this url: " + auth_url)
+        else:
+            webbrowser.open(auth_url, new=2, autoraise=True)
 
-    config["redirect_uri"] = "http://" + config['redirect_host'] + ":" + config['redirect_port'] + redirect_path
-    auth_url = get_auth_url(config, cache, state)
-    wsgi_app = WSGIRedirectionApp(SUCCESS_MESSAGE)
-    http_server = simple_server.make_server(config['redirect_host'],
-                                            int(config['redirect_port']),
-                                            wsgi_app,
-                                            handler_class=WSGIRequestHandler)
-    if cmdline_args.no_browser:
-        print("Please navigate to this url: " + auth_url)
-    else:
-        webbrowser.open(auth_url, new=2, autoraise=True)
+        http_server.handle_request()
 
-    http_server.handle_request()
+        auth_response = wsgi_app.last_request_uri
+        http_server.server_close()
+        parsed_auth_response = parse_qs(auth_response)
 
-    auth_response = wsgi_app.last_request_uri
-    http_server.server_close()
-    parsed_auth_response = parse_qs(auth_response)
+        code_key = config["redirect_uri"] + "?code"
+        if code_key not in parsed_auth_response:
+            return None
 
-    code_key = config["redirect_uri"] + "?code"
-    if code_key not in parsed_auth_response:
-        return None
+        auth_code = parsed_auth_response[code_key]
 
-    auth_code = parsed_auth_response[code_key]
-
-    result = build_msal_app(config, cache).acquire_token_by_authorization_code(
-        auth_code,
-        scopes=config['scopes'],
-        redirect_uri=config["redirect_uri"]);
-
+        result = build_msal_app(config, cache).acquire_token_by_authorization_code(
+            auth_code,
+            scopes=config['scopes'],
+            redirect_uri=config["redirect_uri"]);
+    
+    elif config["flow"] == "device":
+        app = build_msal_app(config, cache)
+        flow = app.initiate_device_flow(config['scopes']);
+        print(flow["message"])
+        result = app.acquire_token_by_device_flow(flow);
 
     if result.get("access_token") is None:
         print("Something went wrong during authorization")
