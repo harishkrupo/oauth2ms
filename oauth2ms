@@ -68,7 +68,7 @@ def build_msal_app(config, cache = None):
     return msal.ConfidentialClientApplication(
         config['client_id'],
         authority="https://login.microsoftonline.com/" + config['tenant_id'],
-        client_credential=config['client_secret'], token_cache=cache)
+        token_cache=cache)
 
 def get_auth_url(config, cache, state):
     return build_msal_app(config, cache).get_authorization_request_url(
@@ -104,7 +104,6 @@ def validate_config(config):
         "redirect_port" in config,
         "redirect_path" in config,
         "scopes" in config,
-        "client_secret" in config
     ]
 
     return all(conditions)
@@ -119,7 +118,7 @@ def build_new_app_state(crypt):
         print("Invalid config")
         print("Config must contain the keys: " +
             "tenant_id, client_id, redirect_host, redirect_port, " +
-            "redirect_path, scopes, client_secret")
+              "redirect_path, scopes")
         return None
 
     state = str(uuid.uuid4())
