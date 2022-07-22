@@ -16,7 +16,7 @@ Additionally, it can encode the token in the [[https://docs.microsoft.com/en-us/
 Example configuration for emacs given in [[steps.org]].
 
 * Dependencies
-Requires mbsync >= 1.3.
+Requires mbsync >= 1.4.
 More information available at: https://github.com/harishkrupo/oauth2ms/issues/2#issuecomment-846464452
 
 * Installation
