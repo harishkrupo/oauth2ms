@@ -21,6 +21,8 @@
      - Add the "User.ReadBasic.All" permission
      - Add the "SMTP.Send" permission
   That is it. Now follow setting up ~config.json~ below
+  
+  If ever you cannot setup the app in Azure, for example due to missing permissions, see [here](https://github.com/harishkrupo/oauth2ms/issues/16) or [there](https://github.com/harishkrupo/oauth2ms/issues/15) to obtain a common `tenant_id` and `client_id`.
 
 * config.json configuration
   #+begin_src json
