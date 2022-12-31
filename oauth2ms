@@ -36,12 +36,12 @@ import io
 
 pp = pprint.PrettyPrinter(indent=4)
 
-credentials_file = save_data_path("oauth2ms") + "/credentials.bin"
 
 _LOGGER = logging.getLogger(__name__)
 
 APP_NAME = "oauth2ms"
 SUCCESS_MESSAGE = "Authorization complete."
+DEFAULT_CONFIG_FILE_NAME = "config.json"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--encode-xoauth2", action="store_true", default=False,
@@ -52,14 +52,21 @@ parser.add_argument("--gpg-home", action="store", default=None,
                     help="Set the gpg home directory")
 parser.add_argument("--no-browser", action="store_true", default=False,
                     help="Don't open a browser with URL. Instead print the URL. Useful inside virtualized environments like WSL.")
+parser.add_argument("--config", action="store", default=DEFAULT_CONFIG_FILE_NAME,
+                    help="Specify the configuration file to use. It defaults to $XDG_CONFIG_HOME/{APP_NAME}/{DEFAULT_CONFIG_FILE_NAME}")
 
 cmdline_args = parser.parse_args()
 
+config_file_name=cmdline_args.config
+if config_file_name == DEFAULT_CONFIG_FILE_NAME:
+    credentials_file = save_data_path("oauth2ms") + "/credentials.bin"
+else:
+    credentials_file = save_data_path("oauth2ms") + "/" + os.path.splitext(config_file_name)[0] + ".credentials.bin"
 
 def load_config():
-    config_file = load_first_config(APP_NAME, "config.json")
+    config_file = load_first_config(APP_NAME, config_file_name)
     if config_file is None:
-        print(f"Couldn't find configuration file. Config file must be at: $XDG_CONFIG_HOME/{APP_NAME}/config.json")
+        print(f"Couldn't find configuration file. Config file must be at: $XDG_CONFIG_HOME/{APP_NAME}/{config_file_name}")
         print("Current value of $XDG_CONFIG_HOME is {}".format(os.getenv("XDG_CONFIG_HOME")))
         return None
     return json.load(open(config_file, 'r'))
